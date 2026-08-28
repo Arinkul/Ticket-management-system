@@ -4,6 +4,7 @@ import { updatePromoterAction, togglePromoterActiveAction } from "@/server/actio
 import { PromoterEditForm } from "@/components/admin/PromoterEditForm";
 import { ResetPasswordButton } from "@/components/admin/ResetPasswordButton";
 import { ToggleActiveButton } from "@/components/admin/ToggleActiveButton";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
@@ -19,6 +20,7 @@ export default async function PromoterDetailPage({
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-6 py-10">
+      <AdminNav />
       <div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

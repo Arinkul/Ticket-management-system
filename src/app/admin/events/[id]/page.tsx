@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/server/services/event.service";
 import { listAssignmentsForEvent } from "@/server/services/assignment.service";
 import { listPromoters } from "@/server/services/promoter.service";
+import { getEventAnalytics } from "@/server/services/dashboard.service";
+import { listEntriesForEventWithPromoter } from "@/server/services/entry.service";
 import {
   updateEventAction,
   toggleEventActiveAction,
@@ -13,6 +15,7 @@ import { AssignmentForm } from "@/components/admin/AssignmentForm";
 import { RemoveAssignmentButton } from "@/components/admin/RemoveAssignmentButton";
 import { ToggleActiveButton } from "@/components/admin/ToggleActiveButton";
 import { DeleteEventForm } from "@/components/admin/DeleteEventForm";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
@@ -26,15 +29,18 @@ export default async function EventDetailPage({
   const event = await getEventById(eventId);
   if (!event) notFound();
 
-  const [assignments, promoters] = await Promise.all([
+  const [assignments, promoters, analytics, entries] = await Promise.all([
     listAssignmentsForEvent(eventId),
     listPromoters(),
+    getEventAnalytics(eventId),
+    listEntriesForEventWithPromoter(eventId),
   ]);
 
   const availablePromoters = promoters.filter((p) => p.isActive);
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-6 py-10">
+      <AdminNav />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-slate-900">{event.name}</h1>
@@ -95,6 +101,78 @@ export default async function EventDetailPage({
             promoters={availablePromoters}
             action={upsertAssignmentAction}
           />
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">Analytics</h2>
+        <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Tickets sold</p>
+            <p className="text-xl font-semibold text-slate-900">{analytics.totalTicketsSold}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Revenue</p>
+            <p className="text-xl font-semibold text-slate-900">
+              ${analytics.totalRevenue.toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Paid</p>
+            <p className="text-xl font-semibold text-emerald-700">
+              {analytics.moneyReceivedCount}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Pending</p>
+            <p className="text-xl font-semibold text-amber-700">{analytics.moneyPendingCount}</p>
+          </div>
+        </div>
+
+        {analytics.byPromoter.length > 0 && (
+          <table className="mb-6 w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
+                <th className="pb-2">Promoter</th>
+                <th className="pb-2">Sold</th>
+                <th className="pb-2">Revenue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {analytics.byPromoter.map((p) => (
+                <tr key={p.promoterId}>
+                  <td className="py-2">{p.promoterName}</td>
+                  <td className="py-2">
+                    {p.ticketsSold}/{p.ticketQuantity}
+                  </td>
+                  <td className="py-2">${p.revenue.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {entries.length > 0 && (
+          <>
+            <h3 className="mb-2 text-sm font-semibold text-slate-700">
+              Recent entries ({entries.length} total)
+            </h3>
+            <div className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
+              {entries.slice(0, 30).map((e) => (
+                <div key={e.id} className="flex items-center justify-between py-2 text-sm">
+                  <div>
+                    <p className="font-medium text-slate-900">{e.buyerName}</p>
+                    <p className="text-xs text-slate-500">
+                      {e.promoterName} · {e.selectedDate} · {e.buyerPhone}
+                    </p>
+                  </div>
+                  <Badge tone={e.moneyReceived ? "success" : "warning"}>
+                    {e.moneyReceived ? "Paid" : "Pending"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </Card>
 

@@ -68,6 +68,75 @@ export async function upsertAssignment(input: {
   return mapAssignment(rows[0]);
 }
 
+export interface AssignmentForPromoter extends PromoterAssignment {
+  ticketsSold: number;
+}
+
+// Used by the entry form to check remaining tickets before accepting a new sale.
+export async function getAssignmentForPromoter(
+  eventId: number,
+  promoterId: number
+): Promise<AssignmentForPromoter | null> {
+  const rows = await query<AssignmentRow & { tickets_sold: number }>(
+    `SELECT pa.id, pa.event_id, pa.promoter_id, pa.ticket_price, pa.ticket_quantity,
+            COUNT(te.id)::int AS tickets_sold
+     FROM promoter_assignments pa
+     LEFT JOIN ticket_entries te
+            ON te.event_id = pa.event_id AND te.promoter_id = pa.promoter_id
+     WHERE pa.event_id = $1 AND pa.promoter_id = $2
+     GROUP BY pa.id`,
+    [eventId, promoterId]
+  );
+  if (!rows[0]) return null;
+  return { ...mapAssignment(rows[0]), ticketsSold: Number(rows[0].tickets_sold) };
+}
+
+export interface AssignedEventSummary {
+  eventId: number;
+  eventName: string;
+  venue: string;
+  eventDates: string[];
+  ticketPrice: number;
+  ticketQuantity: number;
+  ticketsSold: number;
+}
+
+// Powers the promoter's home page — only active events they're assigned to.
+export async function listAssignedEventsForPromoter(
+  promoterId: number
+): Promise<AssignedEventSummary[]> {
+  const rows = await query<{
+    event_id: number;
+    name: string;
+    venue: string;
+    event_dates: string[];
+    ticket_price: string;
+    ticket_quantity: number;
+    tickets_sold: number;
+  }>(
+    `SELECT e.id AS event_id, e.name, e.venue, e.event_dates,
+            pa.ticket_price, pa.ticket_quantity,
+            COUNT(te.id)::int AS tickets_sold
+     FROM promoter_assignments pa
+     JOIN events e ON e.id = pa.event_id
+     LEFT JOIN ticket_entries te
+            ON te.event_id = pa.event_id AND te.promoter_id = pa.promoter_id
+     WHERE pa.promoter_id = $1 AND e.is_active = TRUE
+     GROUP BY e.id, pa.ticket_price, pa.ticket_quantity
+     ORDER BY e.created_at DESC`,
+    [promoterId]
+  );
+  return rows.map((r) => ({
+    eventId: r.event_id,
+    eventName: r.name,
+    venue: r.venue,
+    eventDates: r.event_dates,
+    ticketPrice: Number(r.ticket_price),
+    ticketQuantity: r.ticket_quantity,
+    ticketsSold: Number(r.tickets_sold),
+  }));
+}
+
 export async function removeAssignment(eventId: number, promoterId: number): Promise<void> {
   await query("DELETE FROM promoter_assignments WHERE event_id = $1 AND promoter_id = $2", [
     eventId,

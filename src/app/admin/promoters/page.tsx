@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listPromoters } from "@/server/services/promoter.service";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +10,7 @@ export default async function PromotersPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
+      <AdminNav />
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Promoters</h1>
